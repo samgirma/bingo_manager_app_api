@@ -1,21 +1,64 @@
+import type { LoginRequest } from '@/services/api';
+import { apiService } from '@/services/api';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert('Error', 'Please enter both username and password');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const credentials: LoginRequest = { username, password };
+      const response = await apiService.login(credentials);
+
+      if (response.success) {
+        const user = response.user;
+        if (user?.isBanned) {
+          Alert.alert('Access Denied', 'Your account has been banned');
+          await apiService.logout();
+          return;
+        }
+
+        // Role-based routing
+        if (user?.role === 'ADMIN') {
+          router.replace('/(admin)/home');
+        } else if (user?.role === 'OPERATOR') {
+          router.replace('/(operator)/home');
+        } else {
+          Alert.alert('Error', 'Invalid user role');
+        }
+      } else {
+        Alert.alert('Login Failed', response.error || 'An error occurred');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -75,8 +118,14 @@ export default function LoginScreen() {
           </View>
 
           {/* Sign In Button */}
-          <TouchableOpacity style={styles.signInButton}>
-            <Text style={styles.signInButtonText}>Sign in</Text>
+          <TouchableOpacity
+            style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            <Text style={styles.signInButtonText}>
+              {isLoading ? 'Signing in...' : 'Sign in'}
+            </Text>
           </TouchableOpacity>
 
           {/* Forgot Password Link */}
@@ -203,6 +252,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  signInButtonDisabled: {
+    backgroundColor: '#7d8aff',
+    opacity: 0.7,
   },
   signInButtonText: {
     color: '#FFFFFF',
