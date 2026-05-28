@@ -1,12 +1,12 @@
 import { Button, Card, Input } from '@/components/ui';
+import GlassLoader from '@/components/shared/GlassLoader';
 import { apiService } from '@/services/api';
-import { getCurrentUser } from '@/services/api/mockData';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function CreateUser() {
-  const currentUser = getCurrentUser();
+  const currentUser = apiService.getCurrentUserSync();
   const [form, setForm] = useState({
     username: '',
     password: '',
@@ -15,6 +15,7 @@ export default function CreateUser() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
 
   const formatMacAddress = (text: string) => {
     const cleaned = text.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
@@ -24,16 +25,22 @@ export default function CreateUser() {
 
   const handleCreateBingoCenter = async () => {
     if (!form.username || !form.password || !form.mac_address || !form.balance) {
-      Alert.alert('Error', 'Please fill all fields');
+      Alert.alert('Validation Error', 'Please fill all fields');
       return;
     }
 
     if (form.mac_address.length !== 17) {
-      Alert.alert('Error', 'Invalid MAC address format');
+      Alert.alert('Validation Error', 'Invalid MAC address format (expected XX:XX:XX:XX:XX:XX)');
+      return;
+    }
+
+    if (parseFloat(form.balance) < 0) {
+      Alert.alert('Validation Error', 'Transaction Failed: Starting balance cannot be negative');
       return;
     }
 
     setLoading(true);
+    setLoadingMessage('Registering new Bingo Center...');
     try {
       const response = await apiService.createBingoCenter({
         username: form.username,
@@ -43,22 +50,35 @@ export default function CreateUser() {
         createdBy: currentUser?.username || '',
       });
 
-      if (response.success) {
-        Alert.alert('Success', 'Bingo Center created successfully');
-        setForm({ username: '', password: '', mac_address: '', balance: '' });
-      } else {
-        Alert.alert('Error', response.error || 'Failed to create Bingo Center');
+      if (!response.success) {
+        Alert.alert('Operation Failed', response.error || 'Failed to create Bingo Center');
+        return;
       }
+
+      const file = response.encryptedFile;
+
+      if (file) {
+        Alert.alert(
+          'Center Registered',
+          `Bingo Center "${form.username}" created successfully.\n\nEncrypted terminal file generated:\n${file.fileName}\nKey FP: ${file.keyFingerprint}`,
+        );
+      } else {
+        Alert.alert('Success', 'Bingo Center created successfully');
+      }
+
+      setForm({ username: '', password: '', mac_address: '', balance: '' });
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      Alert.alert('System Error', 'An unexpected error occurred during registration');
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      <GlassLoader visible={loading} message={loadingMessage} />
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Create Bingo Center</Text>
       </View>
@@ -127,14 +147,15 @@ export default function CreateUser() {
           />
         </Card>
 
-        {/* Info Card */}
         <Card style={styles.infoCard}>
           <View style={styles.infoContent}>
             <Ionicons name="information-circle" size={24} color="#FBBF24" />
             <View style={styles.infoText}>
               <Text style={styles.infoTitle}>Important Information</Text>
               <Text style={styles.infoDescription}>
-                Bingo Centers are physical game terminals. The MAC address must match the hardware device.
+                Bingo Centers are physical game terminals. The MAC address must match the hardware
+                device. An AES-256-CBC encrypted terminal file will be generated upon successful
+                registration for PHP backend import.
               </Text>
             </View>
           </View>

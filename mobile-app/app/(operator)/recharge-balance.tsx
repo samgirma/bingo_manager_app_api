@@ -1,13 +1,13 @@
 import { Button, Card, Input } from '@/components/ui';
+import GlassLoader from '@/components/shared/GlassLoader';
 import type { BingoCenter } from '@/services/api';
 import { apiService } from '@/services/api';
-import { getCurrentUser } from '@/services/api/mockData';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function RechargeBalance() {
-  const currentUser = getCurrentUser();
+  const currentUser = apiService.getCurrentUserSync();
   const [bingoCenters, setBingoCenters] = useState<BingoCenter[]>([]);
   const [selectedCenter, setSelectedCenter] = useState<string>('');
   const [form, setForm] = useState({
@@ -15,6 +15,7 @@ export default function RechargeBalance() {
     actualAmount: '',
   });
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const [loadingCenters, setLoadingCenters] = useState(true);
 
   useEffect(() => {
@@ -36,31 +37,56 @@ export default function RechargeBalance() {
 
   const handleRecharge = async () => {
     if (!selectedCenter || !form.generatedAmount || !form.actualAmount) {
-      Alert.alert('Error', 'Please fill all fields');
+      Alert.alert('Validation Error', 'Please fill all fields');
+      return;
+    }
+
+    const genVal = parseFloat(form.generatedAmount);
+    const actVal = parseFloat(form.actualAmount);
+
+    if (genVal <= 0) {
+      Alert.alert('Validation Error', 'Transaction Failed: Generated amount must be greater than zero');
+      return;
+    }
+    if (actVal < 0) {
+      Alert.alert('Validation Error', 'Transaction Failed: Actual amount cannot be negative');
       return;
     }
 
     setLoading(true);
+    setLoadingMessage('Processing top-up...');
     try {
       const response = await apiService.rechargeBalance({
         bingoCenterUsername: selectedCenter,
-        generatedAmount: parseFloat(form.generatedAmount),
-        actualAmount: parseFloat(form.actualAmount),
+        generatedAmount: genVal,
+        actualAmount: actVal,
         debitedBy: currentUser?.username || '',
       });
 
-      if (response.success) {
-        Alert.alert('Success', 'Balance recharged successfully');
-        setForm({ generatedAmount: '', actualAmount: '' });
-        setSelectedCenter('');
-        loadBingoCenters();
+      if (!response.success) {
+        Alert.alert('Operation Failed', response.error || 'Failed to recharge balance');
+        return;
+      }
+
+      setForm({ generatedAmount: '', actualAmount: '' });
+      setSelectedCenter('');
+      await loadBingoCenters();
+
+      const file = response.encryptedFile;
+
+      if (file) {
+        Alert.alert(
+          'Top-up Complete',
+          `Balance recharged successfully.\n\nEncrypted top-up file generated:\n${file.fileName}\nKey FP: ${file.keyFingerprint}`,
+        );
       } else {
-        Alert.alert('Error', response.error || 'Failed to recharge balance');
+        Alert.alert('Success', 'Balance recharged successfully');
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+      Alert.alert('System Error', 'An unexpected error occurred during the top-up process');
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -71,6 +97,8 @@ export default function RechargeBalance() {
 
   return (
     <View style={styles.container}>
+      <GlassLoader visible={loading} message={loadingMessage} />
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Recharge Balance</Text>
       </View>
@@ -116,7 +144,7 @@ export default function RechargeBalance() {
                           {center.username}
                         </Text>
                         <Text style={styles.pickerItemBalance}>
-                          Current: ${center.balance.toFixed(2)}
+                          Current: {center.balance.toFixed(2)} ETB
                         </Text>
                       </View>
                       {selectedCenter === center.username && (
@@ -130,7 +158,7 @@ export default function RechargeBalance() {
               {selectedCenter && (
                 <Card style={styles.balanceCard}>
                   <Text style={styles.balanceLabel}>Current Balance</Text>
-                  <Text style={styles.balanceValue}>${getSelectedCenterBalance().toFixed(2)}</Text>
+                  <Text style={styles.balanceValue}>{getSelectedCenterBalance().toFixed(2)} ETB</Text>
                 </Card>
               )}
 
@@ -154,11 +182,11 @@ export default function RechargeBalance() {
                 <Card style={styles.summaryCard}>
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Generated:</Text>
-                    <Text style={styles.summaryValue}>${parseFloat(form.generatedAmount).toFixed(2)}</Text>
+                    <Text style={styles.summaryValue}>{parseFloat(form.generatedAmount).toFixed(2)} ETB</Text>
                   </View>
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Actual Paid:</Text>
-                    <Text style={styles.summaryValue}>${parseFloat(form.actualAmount).toFixed(2)}</Text>
+                    <Text style={styles.summaryValue}>{parseFloat(form.actualAmount).toFixed(2)} ETB</Text>
                   </View>
                   <View style={[styles.summaryRow, styles.summaryRowTotal]}>
                     <Text style={styles.summaryLabelTotal}>Difference:</Text>
@@ -168,7 +196,7 @@ export default function RechargeBalance() {
                         ? styles.positive
                         : styles.negative,
                     ]}>
-                      ${(parseFloat(form.generatedAmount) - parseFloat(form.actualAmount)).toFixed(2)}
+                      {(parseFloat(form.generatedAmount) - parseFloat(form.actualAmount)).toFixed(2)} ETB
                     </Text>
                   </View>
                 </Card>
@@ -191,7 +219,9 @@ export default function RechargeBalance() {
             <View style={styles.infoText}>
               <Text style={styles.infoTitle}>Recharge Information</Text>
               <Text style={styles.infoDescription}>
-                Generated amount is applied to the terminal. Actual amount is the physical payment received.
+                Generated amount is applied to the terminal. Actual amount is the physical payment
+                received. An AES-256-CBC encrypted top-up file will be generated for PHP backend
+                import after each successful transaction.
               </Text>
             </View>
           </View>

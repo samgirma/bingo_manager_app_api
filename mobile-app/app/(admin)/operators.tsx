@@ -10,6 +10,9 @@ export default function AdminOperators() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetUsername, setResetUsername] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
   const [newOperator, setNewOperator] = useState({
     full_name: '',
     username: '',
@@ -46,24 +49,26 @@ export default function AdminOperators() {
     }
   };
 
-  const handleResetPassword = async (username: string) => {
-    Alert.prompt(
-      'Reset Password',
-      'Enter new password:',
-      async (newPassword) => {
-        if (newPassword) {
-          try {
-            const response = await apiService.resetOperatorPassword(username, newPassword);
-            if (response.success) {
-              Alert.alert('Success', 'Password reset successfully');
-            }
-          } catch (error) {
-            Alert.alert('Error', 'Failed to reset password');
-          }
-        }
-      },
-      'plain-text'
-    );
+  const handleResetPassword = (username: string) => {
+    setResetUsername(username);
+    setResetPassword('');
+    setShowResetModal(true);
+  };
+
+  const confirmResetPassword = async () => {
+    if (!resetPassword || resetPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+    try {
+      const response = await apiService.resetOperatorPassword(resetUsername, resetPassword);
+      if (response.success) {
+        Alert.alert('Success', 'Password reset successfully');
+        setShowResetModal(false);
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to reset password');
+    }
   };
 
   const handleCreateOperator = async () => {
@@ -222,6 +227,41 @@ export default function AdminOperators() {
           </View>
         </View>
       </Modal>
+
+      {/* Reset Password Modal */}
+      <Modal
+        visible={showResetModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowResetModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Reset Password</Text>
+            <Text style={styles.modalSubtitle}>for {resetUsername}</Text>
+            <Input
+              label="New Password"
+              placeholder="Enter new password"
+              value={resetPassword}
+              onChangeText={setResetPassword}
+              secureTextEntry
+            />
+            <View style={styles.modalActions}>
+              <Button
+                title="Cancel"
+                onPress={() => setShowResetModal(false)}
+                variant="secondary"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Reset"
+                onPress={confirmResetPassword}
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -366,6 +406,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
     marginBottom: 20,
   },
   modalActions: {

@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
@@ -20,12 +19,16 @@ export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
 
   const handleLogin = async () => {
+    setError('');
+
     if (!username || !password) {
-      Alert.alert('Error', 'Please enter both username and password');
+      setError('Please enter both username and password');
       return;
     }
 
@@ -37,7 +40,7 @@ export default function LoginScreen() {
       if (response.success) {
         const user = response.user;
         if (user?.isBanned) {
-          Alert.alert('Access Denied', 'Your account has been banned');
+          setError('Your account has been suspended by an administrator. Please contact your system administrator to regain access.');
           await apiService.logout();
           return;
         }
@@ -48,13 +51,13 @@ export default function LoginScreen() {
         } else if (user?.role === 'OPERATOR') {
           router.replace('/(operator)/home');
         } else {
-          Alert.alert('Error', 'Invalid user role');
+          setError('Invalid user role');
         }
       } else {
-        Alert.alert('Login Failed', response.error || 'An error occurred');
+        setError(response.error || 'Login failed');
       }
-    } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
+    } catch {
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -95,15 +98,28 @@ export default function LoginScreen() {
 
           {/* Password Input */}
           <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#FFFFFF"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Password"
+                placeholderTextColor="#FFFFFF"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#FFFFFF"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Remember Me Checkbox */}
@@ -128,8 +144,16 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
+          {/* Error Message */}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color="#F43F5E" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
           {/* Forgot Password Link */}
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/forgot-password')}>
             <Text style={styles.forgotPasswordText}>Forgot password?</Text>
           </TouchableOpacity>
         </View>
@@ -207,6 +231,22 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 15,
   },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#7d8aff',
+    borderRadius: 25,
+  },
+  passwordInput: {
+    flex: 1,
+    height: 50,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  eyeIcon: {
+    paddingHorizontal: 16,
+  },
   input: {
     width: '100%',
     height: 50,
@@ -266,5 +306,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5DADE2',
     marginTop: 10,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(244, 63, 94, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    gap: 8,
+  },
+  errorText: {
+    color: '#F43F5E',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
   },
 });

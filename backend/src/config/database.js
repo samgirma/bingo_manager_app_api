@@ -1,52 +1,43 @@
-const mongoose = require('mongoose');
+const { Sequelize } = require('sequelize');
+const config = require('./config');
 const logger = require('../utils/logger');
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/unique-bingo';
+const sequelize = new Sequelize(config.db.name, config.db.user, config.db.password, {
+  host: config.db.host,
+  port: config.db.port,
+  dialect: config.db.dialect,
+  pool: config.db.pool,
+  logging: config.env === 'development' ? (msg) => logger.debug(msg) : false,
+  define: {
+    timestamps: true,
+    underscored: true,
+  },
+});
 
-const connectDatabase = async () => {
+async function connectDatabase() {
   try {
-    const options = {
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      bufferCommands: false,
-      bufferMaxEntries: 0,
-    };
-
-    await mongoose.connect(MONGODB_URI, options);
-    
-    logger.info('Connected to MongoDB successfully', {
-      database: mongoose.connection.name,
-      host: mongoose.connection.host,
-      port: mongoose.connection.port,
+    await sequelize.authenticate();
+    logger.info('MySQL connection established', {
+      host: config.db.host,
+      database: config.db.name,
     });
 
-    // Handle connection events
-    mongoose.connection.on('error', (error) => {
-      logger.error('MongoDB connection error:', error);
-    });
-
-    mongoose.connection.on('disconnected', () => {
-      logger.warn('MongoDB disconnected');
-    });
-
-    mongoose.connection.on('reconnected', () => {
-      logger.info('MongoDB reconnected');
-    });
-
+    // Sync models (creates tables if they don't exist)
+    await sequelize.sync({ alter: false });
+    logger.info('Database models synchronized');
   } catch (error) {
-    logger.error('Failed to connect to MongoDB:', error);
+    logger.error('Unable to connect to MySQL:', error);
     process.exit(1);
   }
-};
+}
 
-const disconnectDatabase = async () => {
+async function disconnectDatabase() {
   try {
-    await mongoose.disconnect();
-    logger.info('Disconnected from MongoDB');
+    await sequelize.close();
+    logger.info('MySQL connection closed');
   } catch (error) {
-    logger.error('Error disconnecting from MongoDB:', error);
+    logger.error('Error closing MySQL connection:', error);
   }
-};
+}
 
-module.exports = { connectDatabase, disconnectDatabase };
+module.exports = { sequelize, connectDatabase, disconnectDatabase };

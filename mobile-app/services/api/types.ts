@@ -16,7 +16,7 @@ export interface User {
   username: string;
   full_name: string;
   email: string;
-  password: string;
+  password?: string;
   role: UserRole;
   profile_pic_url?: string;
   isBanned: boolean;
@@ -43,14 +43,24 @@ export interface RechargeHistory {
 }
 
 export interface ApiResponse<T> {
-  data: T;
+  data: T | null;
   success: boolean;
   error?: string;
 }
 
+export interface EncryptedFilePayload {
+  fileName: string;
+  iv: string;
+  ciphertext: string;
+  keyFingerprint: string;
+  format: 'AES-256-CBC';
+  timestamp: string;
+  fileContent: string;
+}
+
 export interface MockUser {
   username: string;
-  password: string;
+  password?: string;
   full_name: string;
   email: string;
   role: UserRole;

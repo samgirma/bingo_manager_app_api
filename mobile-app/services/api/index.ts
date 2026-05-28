@@ -1,5 +1,3 @@
-// Re-export everything from the mock API service
-export { default as apiService } from './mockApiService';
-export { mockApiService } from './mockApiService';
+export { default as apiService } from './apiService';
+export { apiService as mockApiService } from './apiService';
 export * from './types';
-export * from './mockData';
