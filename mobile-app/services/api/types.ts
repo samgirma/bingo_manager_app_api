@@ -25,8 +25,9 @@ export interface User {
 
 export interface BingoCenter {
   userID: number;
+  full_name: string;
   username: string;
-  password: string;
+  password?: string;
   balance: number;
   mac_address: string;
   createdBy: string;

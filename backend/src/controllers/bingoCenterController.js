@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const { BingoCenter, RechargeHistory } = require('../models');
 const { generateUserFile, generateTopupFile } = require('../services/cryptoService');
+const { fn, col } = require('sequelize');
+const { sequelize } = require('../config/database');
 const logger = require('../utils/logger');
 
 exports.list = async (req, res, next) => {
@@ -11,15 +13,26 @@ exports.list = async (req, res, next) => {
     }
     const centers = await BingoCenter.findAll({
       where,
+      attributes: {
+        include: [
+          [fn('COALESCE', fn('SUM', col('recharge_history.actual_amount')), 0), 'balance'],
+        ],
+      },
+      include: [{
+        model: RechargeHistory,
+        attributes: [],
+        required: false,
+      }],
+      group: ['BingoCenter.id'],
       order: [['created_at', 'DESC']],
     });
     res.json({
       success: true,
       data: centers.map((c) => ({
         userID: c.id,
+        full_name: c.full_name,
         username: c.username,
-        password: c.password,
-        balance: c.balance,
+        balance: parseFloat(c.dataValues.balance || '0'),
         mac_address: c.mac_address,
         createdBy: c.created_by,
         createdAt: c.created_at,
@@ -32,9 +45,9 @@ exports.list = async (req, res, next) => {
 
 exports.create = async (req, res, next) => {
   try {
-    const { username, password, mac_address, balance, createdBy } = req.body;
+    const { full_name, username, password, mac_address, balance, actualAmount, createdBy } = req.body;
 
-    if (!username || !password || !mac_address || balance === undefined) {
+    if (!full_name || !username || !password || !mac_address || balance === undefined || actualAmount === undefined) {
       return res.status(400).json({ success: false, error: 'All fields are required' });
     }
 
@@ -42,35 +55,64 @@ exports.create = async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Transaction Failed: Starting balance cannot be negative' });
     }
 
-    const existing = await BingoCenter.findOne({ where: { username } });
-    if (existing) {
+    if (parseFloat(actualAmount) < 0) {
+      return res.status(400).json({ success: false, error: 'Transaction Failed: Actual paid amount cannot be negative' });
+    }
+
+    const existingUsername = await BingoCenter.findOne({ where: { username } });
+    if (existingUsername) {
       return res.status(409).json({ success: false, error: 'Bingo center username already exists' });
     }
 
-    const hash = await bcrypt.hash(password, 10);
-    const center = await BingoCenter.create({
-      username,
-      password: hash,
-      mac_address,
-      balance: parseFloat(balance),
-      created_by: createdBy || 'system',
+    const existingMac = await BingoCenter.findOne({ where: { mac_address } });
+    if (existingMac) {
+      return res.status(409).json({ success: false, error: 'MAC address already registered' });
+    }
+
+    // Atomic: create center + initial transaction in one DB transaction
+    const result = await sequelize.transaction(async (t) => {
+      const hash = await bcrypt.hash(password, 10);
+
+      const center = await BingoCenter.create({
+        full_name,
+        username,
+        password: hash,
+        mac_address,
+        balance: parseFloat(actualAmount),
+        created_by: createdBy || 'system',
+      }, { transaction: t });
+
+      const recharge = await RechargeHistory.create({
+        actual_amount: parseFloat(actualAmount),
+        generated_amount: parseFloat(balance),
+        bingo_center_username: username,
+        debited_by: createdBy || 'system',
+      }, { transaction: t });
+
+      return { center, recharge };
     });
 
-    // Generate the AES-256-CBC encrypted terminal file
-    const encFile = generateUserFile(center.username, password);
+    logger.info(`Bingo center created: ${result.center.username} with initial balance ${balance}`);
 
-    logger.info(`Bingo center created: ${center.username}`);
+    // Generate the encrypted terminal file for PHP backend import
+    const encFile = generateUserFile(
+      result.center.username,
+      password,
+      result.center.full_name,
+      balance,
+      mac_address,
+    );
 
     res.status(201).json({
       success: true,
       data: {
-        userID: center.id,
-        username: center.username,
-        password: center.password,
-        balance: center.balance,
-        mac_address: center.mac_address,
-        createdBy: center.created_by,
-        createdAt: center.created_at,
+        userID: result.center.id,
+        full_name: result.center.full_name,
+        username: result.center.username,
+        balance: result.center.balance,
+        mac_address: result.center.mac_address,
+        createdBy: result.center.created_by,
+        createdAt: result.center.created_at,
       },
       encryptedFile: encFile,
     });
@@ -102,8 +144,8 @@ exports.recharge = async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Transaction Failed: Bingo Center not found' });
     }
 
-    // Atomic balance update
-    const newBalance = parseFloat(center.balance) + genVal;
+    // Atomic balance update — track actual paid amount
+    const newBalance = parseFloat(center.balance) + actVal;
     await center.update({ balance: newBalance });
 
     const recharge = await RechargeHistory.create({

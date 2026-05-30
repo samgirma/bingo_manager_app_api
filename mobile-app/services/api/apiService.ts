@@ -1,6 +1,6 @@
 import type { ApiResponse, BingoCenter, EncryptedFilePayload, LoginRequest, LoginResponse, RechargeHistory, User } from './types';
 
-const BASE_URL =  __DEV__ ? 'http://localhost:3000' : 'https://api.bingomanager.com';
+const BASE_URL =  'https://thick-bats-attend.loca.lt' //__DEV__ ? 'http://localhost:3000' : 'https://api.bingomanager.com';
 
 class ApiService {
   private token: string | null = null;
@@ -122,10 +122,12 @@ class ApiService {
   }
 
   async createBingoCenter(data: {
+    full_name: string;
     username: string;
     password: string;
     mac_address: string;
     balance: number;
+    actualAmount: number;
     createdBy?: string;
   }): Promise<ApiResponse<BingoCenter> & { encryptedFile?: EncryptedFilePayload }> {
     const { apiResponse, body } = await this.requestRaw<BingoCenter>('/api/bingo-centers', {

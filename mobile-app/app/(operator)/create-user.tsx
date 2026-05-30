@@ -1,19 +1,21 @@
 import { Button, Card, Input } from '@/components/ui';
 import GlassLoader from '@/components/shared/GlassLoader';
 import { apiService } from '@/services/api';
+import { downloadEncryptedFile } from '@/utils/fileDownloader';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function CreateUser() {
   const currentUser = apiService.getCurrentUserSync();
   const [form, setForm] = useState({
+    full_name: '',
     username: '',
     password: '',
     mac_address: '',
     balance: '',
+    actualAmount: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
 
@@ -24,7 +26,7 @@ export default function CreateUser() {
   };
 
   const handleCreateBingoCenter = async () => {
-    if (!form.username || !form.password || !form.mac_address || !form.balance) {
+    if (!form.full_name || !form.username || !form.password || !form.mac_address || !form.balance || !form.actualAmount) {
       Alert.alert('Validation Error', 'Please fill all fields');
       return;
     }
@@ -35,7 +37,12 @@ export default function CreateUser() {
     }
 
     if (parseFloat(form.balance) < 0) {
-      Alert.alert('Validation Error', 'Transaction Failed: Starting balance cannot be negative');
+      Alert.alert('Validation Error', 'Starting balance cannot be negative');
+      return;
+    }
+
+    if (parseFloat(form.actualAmount) < 0) {
+      Alert.alert('Validation Error', 'Actual paid amount cannot be negative');
       return;
     }
 
@@ -43,10 +50,12 @@ export default function CreateUser() {
     setLoadingMessage('Registering new Bingo Center...');
     try {
       const response = await apiService.createBingoCenter({
+        full_name: form.full_name,
         username: form.username,
         password: form.password,
         mac_address: form.mac_address,
         balance: parseFloat(form.balance),
+        actualAmount: parseFloat(form.actualAmount),
         createdBy: currentUser?.username || '',
       });
 
@@ -60,14 +69,20 @@ export default function CreateUser() {
       if (file) {
         Alert.alert(
           'Center Registered',
-          `Bingo Center "${form.username}" created successfully.\n\nEncrypted terminal file generated:\n${file.fileName}\nKey FP: ${file.keyFingerprint}`,
+          `Bingo Center "${form.full_name}" created successfully.\n\nRef: ${file.transactionRef || 'N/A'}`,
+          [
+            { text: 'OK' },
+            {
+              text: 'Save File',
+              onPress: () => downloadEncryptedFile(file),
+            },
+          ],
         );
       } else {
-        Alert.alert('Success', 'Bingo Center created successfully');
+        Alert.alert('Success', `Bingo Center "${form.full_name}" created successfully`);
       }
-
-      setForm({ username: '', password: '', mac_address: '', balance: '' });
-    } catch (error) {
+      setForm({ full_name: '', username: '', password: '', mac_address: '', balance: '', actualAmount: '' });
+    } catch {
       Alert.alert('System Error', 'An unexpected error occurred during registration');
     } finally {
       setLoading(false);
@@ -94,33 +109,27 @@ export default function CreateUser() {
           </View>
 
           <Input
-            label="Bingo Center Username"
+            label="Full Name"
+            placeholder="e.g. Sami Bingo"
+            value={form.full_name}
+            onChangeText={(text) => setForm({ ...form, full_name: text })}
+          />
+
+          <Input
+            label="Username"
             placeholder="Enter unique username"
             value={form.username}
             onChangeText={(text) => setForm({ ...form, username: text })}
             autoCapitalize="none"
           />
 
-          <View style={styles.passwordContainer}>
-            <Input
-              label="Passphrase"
-              placeholder="Enter passphrase"
-              value={form.password}
-              onChangeText={(text) => setForm({ ...form, password: text })}
-              secureTextEntry={!showPassword}
-              style={styles.passwordInput}
-            />
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Ionicons
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={24}
-                color="#94A3B8"
-              />
-            </TouchableOpacity>
-          </View>
+          <Input
+            label="Password"
+            placeholder="Enter password"
+            value={form.password}
+            onChangeText={(text) => setForm({ ...form, password: text })}
+            secureTextEntry
+          />
 
           <Input
             label="MAC Address"
@@ -133,9 +142,17 @@ export default function CreateUser() {
 
           <Input
             label="Starting Balance"
-            placeholder="Enter initial balance"
+            placeholder="Enter initial balance (ETB)"
             value={form.balance}
             onChangeText={(text) => setForm({ ...form, balance: text })}
+            keyboardType="decimal-pad"
+          />
+
+          <Input
+            label="Actual Paid Amount"
+            placeholder="Enter amount paid (ETB)"
+            value={form.actualAmount}
+            onChangeText={(text) => setForm({ ...form, actualAmount: text })}
             keyboardType="decimal-pad"
           />
 
@@ -208,17 +225,6 @@ const styles = StyleSheet.create({
   formSubtitle: {
     fontSize: 14,
     color: '#94A3B8',
-  },
-  passwordContainer: {
-    position: 'relative',
-  },
-  passwordInput: {
-    paddingRight: 50,
-  },
-  eyeIcon: {
-    position: 'absolute',
-    right: 16,
-    top: 40,
   },
   submitButton: {
     marginTop: 8,

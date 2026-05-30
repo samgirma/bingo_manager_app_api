@@ -79,13 +79,13 @@ export default function TransactionsList({ title, debitedByFilter }: Transaction
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Actual Paid:</Text>
                   <Text style={[styles.detailValue, styles.amountValue]}>
-                    {transaction.actualAmount.toFixed(2)} ETB
+                    {parseFloat(transaction.actualAmount as unknown as string).toFixed(2)} ETB
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Generated:</Text>
                   <Text style={[styles.detailValue, styles.generatedValue]}>
-                    {transaction.generatedAmount.toFixed(2)} ETB
+                    {parseFloat(transaction.generatedAmount as unknown as string).toFixed(2)} ETB
                   </Text>
                 </View>
               </View>

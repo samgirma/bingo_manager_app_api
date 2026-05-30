@@ -4,12 +4,7 @@ const { BingoCenter, RechargeHistory } = require('../models');
 exports.getSystemAnalytics = async (req, res, next) => {
   try {
     const [totalBalanceResult, activeCenters, todayGeneratedTopups] = await Promise.all([
-      BingoCenter.findAll({
-        attributes: [
-          [require('sequelize').fn('COALESCE', require('sequelize').fn('SUM', require('sequelize').col('balance')), 0), 'totalBalance'],
-        ],
-        raw: true,
-      }),
+      RechargeHistory.sum('actual_amount'),
       BingoCenter.count(),
       RechargeHistory.sum('generated_amount', {
         where: {
@@ -20,12 +15,10 @@ exports.getSystemAnalytics = async (req, res, next) => {
       }),
     ]);
 
-    const totalBalance = parseFloat(totalBalanceResult[0]?.totalBalance || '0');
-
     res.json({
       success: true,
       data: {
-        totalBalance,
+        totalBalance: parseFloat(totalBalanceResult || '0'),
         activeCenters,
         todayGeneratedTopups: parseFloat(todayGeneratedTopups || '0'),
       },

@@ -13,6 +13,7 @@ Session.belongsTo(User, { foreignKey: 'user_id' });
 BingoCenter.belongsTo(User, { foreignKey: 'created_by', targetKey: 'username' });
 
 // RechargeHistory references both BingoCenter and User
+BingoCenter.hasMany(RechargeHistory, { foreignKey: 'bingo_center_username', sourceKey: 'username' });
 RechargeHistory.belongsTo(BingoCenter, { foreignKey: 'bingo_center_username', targetKey: 'username' });
 RechargeHistory.belongsTo(User, { foreignKey: 'debited_by', targetKey: 'username' });
 

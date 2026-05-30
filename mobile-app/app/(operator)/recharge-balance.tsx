@@ -2,6 +2,7 @@ import { Button, Card, Input } from '@/components/ui';
 import GlassLoader from '@/components/shared/GlassLoader';
 import type { BingoCenter } from '@/services/api';
 import { apiService } from '@/services/api';
+import { downloadEncryptedFile } from '@/utils/fileDownloader';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -77,7 +78,14 @@ export default function RechargeBalance() {
       if (file) {
         Alert.alert(
           'Top-up Complete',
-          `Balance recharged successfully.\n\nEncrypted top-up file generated:\n${file.fileName}\nKey FP: ${file.keyFingerprint}`,
+          `Balance recharged successfully.\n\nRef: ${file.transactionRef || 'N/A'}`,
+          [
+            { text: 'OK' },
+            {
+              text: 'Save File',
+              onPress: () => downloadEncryptedFile(file),
+            },
+          ],
         );
       } else {
         Alert.alert('Success', 'Balance recharged successfully');
@@ -92,7 +100,7 @@ export default function RechargeBalance() {
 
   const getSelectedCenterBalance = () => {
     const center = bingoCenters.find(c => c.username === selectedCenter);
-    return center?.balance || 0;
+    return parseFloat(center?.balance as unknown as string) || 0;
   };
 
   return (
@@ -144,7 +152,7 @@ export default function RechargeBalance() {
                           {center.username}
                         </Text>
                         <Text style={styles.pickerItemBalance}>
-                          Current: {center.balance.toFixed(2)} ETB
+                          Current: {parseFloat(center.balance as unknown as string).toFixed(2)} ETB
                         </Text>
                       </View>
                       {selectedCenter === center.username && (

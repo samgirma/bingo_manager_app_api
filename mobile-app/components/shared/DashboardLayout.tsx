@@ -248,7 +248,7 @@ export default function DashboardLayout({
                   styles.transactionAmount,
                   transaction.generatedAmount > 0 ? styles.amountPositive : styles.amountNegative,
                 ]}>
-                  +{transaction.generatedAmount.toFixed(0)} ETB
+                  +{parseFloat(transaction.generatedAmount as unknown as string).toFixed(0)} ETB
                 </Text>
               </View>
             ))

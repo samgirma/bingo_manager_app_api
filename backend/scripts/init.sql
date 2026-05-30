@@ -21,10 +21,11 @@ CREATE TABLE IF NOT EXISTS users (
 -- Bingo physical terminals
 CREATE TABLE IF NOT EXISTS bingo_centers (
   id            INT AUTO_INCREMENT PRIMARY KEY,
+  full_name     VARCHAR(100) NOT NULL,
   username      VARCHAR(50)  NOT NULL UNIQUE,
   password      VARCHAR(255) NOT NULL,
   balance       DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-  mac_address   VARCHAR(17)  NOT NULL,
+  mac_address   VARCHAR(17)  NOT NULL UNIQUE,
   created_by    VARCHAR(50)  NOT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

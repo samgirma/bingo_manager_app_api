@@ -369,8 +369,8 @@ Hard-deletes the operator and invalidates all their active sessions.
   "data": [
     {
       "userID": 1,
-      "username": "bingo_center_001",
-      "password": "$2a$10$...",
+      "full_name": "Sami Bingo",
+      "username": "sami_bingo",
       "balance": 5000.00,
       "mac_address": "00:1A:2B:3C:4D:5E",
       "createdBy": "operator1",
@@ -388,13 +388,14 @@ Hard-deletes the operator and invalidates all their active sessions.
 
 **Body**
 
-| Field     | Type   | Required | Description |
-|-----------|--------|----------|-------------|
-| username  | string | yes      | Unique      |
-| password  | string | yes      |             |
-| mac_address | string | yes    |             |
-| balance   | number | yes      | Must be >= 0 |
-| createdBy | string | no       | Defaults to "system" |
+| Field      | Type   | Required | Description |
+|------------|--------|----------|-------------|
+| full_name  | string | yes      | e.g. "Sami Bingo" |
+| username   | string | yes      | Unique      |
+| mac_address| string | yes      | Unique, XX:XX:XX:XX:XX:XX |
+| balance    | number | yes      | Starting balance, must be >= 0 |
+| actualAmount | number | yes    | Actual paid amount, must be >= 0 |
+| createdBy  | string | no       | Defaults to "system" |
 
 **Response `201`**
 
@@ -403,26 +404,19 @@ Hard-deletes the operator and invalidates all their active sessions.
   "success": true,
   "data": {
     "userID": 3,
-    "username": "bingo_center_003",
-    "password": "$2a$10$...",
+    "full_name": "Sami Bingo",
+    "username": "sami_bingo",
     "balance": 1000,
     "mac_address": "00:1A:2B:3C:4D:60",
-    "createdBy": "admin",
+    "createdBy": "operator1",
     "createdAt": "2026-05-28T12:00:00.000Z"
-  },
-  "encryptedFile": {
-    "fileName": "user_bingo_center_003_1716892800000.enc",
-    "iv": "a1b2c3d4e5f67890a1b2c3d4e5f67890",
-    "ciphertext": "eyJ1c2VybmFtZSI6...",
-    "keyFingerprint": "abcd1234",
-    "format": "AES-256-CBC",
-    "timestamp": "2026-05-28T12:00:00.000Z",
-    "fileContent": "---BEGIN ENCRYPTED TERMINAL FILE---\n..."
   }
 }
 ```
 
-**Errors:** `400` missing fields / negative balance, `409` duplicate username.
+A `recharge_history` record is also created automatically with `generated_amount = balance` and `actual_amount = actualAmount`.
+
+**Errors:** `400` missing fields / negative balance, `409` duplicate username or MAC address.
 
 ---
 

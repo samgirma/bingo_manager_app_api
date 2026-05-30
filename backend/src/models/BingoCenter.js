@@ -7,6 +7,10 @@ const BingoCenter = sequelize.define('BingoCenter', {
     primaryKey: true,
     autoIncrement: true,
   },
+  full_name: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+  },
   username: {
     type: DataTypes.STRING(50),
     allowNull: false,
@@ -24,6 +28,7 @@ const BingoCenter = sequelize.define('BingoCenter', {
   mac_address: {
     type: DataTypes.STRING(17),
     allowNull: false,
+    unique: true,
   },
   created_by: {
     type: DataTypes.STRING(50),
