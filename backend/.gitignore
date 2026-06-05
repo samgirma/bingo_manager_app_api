@@ -2,3 +2,9 @@ node_modules/
 .env
 *.log
 dist/
+
+# archives
+archives/
+
+# test files
+test_outputs/
