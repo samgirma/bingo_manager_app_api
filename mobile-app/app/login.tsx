@@ -22,10 +22,12 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const router = useRouter();
 
   const handleLogin = async () => {
     setError('');
+    setSuccess('');
 
     if (!username || !password) {
       setError('Please enter both username and password');
@@ -35,7 +37,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const credentials: LoginRequest = { username, password };
-      const response = await apiService.login(credentials);
+      const response = await apiService.login(credentials, rememberMe);
 
       if (response.success) {
         const user = response.user;
@@ -43,6 +45,10 @@ export default function LoginScreen() {
           setError('Your account has been suspended by an administrator. Please contact your system administrator to regain access.');
           await apiService.logout();
           return;
+        }
+
+        if (rememberMe) {
+          setSuccess('Session saved. You won\'t need to log in again for 7 days.');
         }
 
         // Role-based routing
@@ -149,6 +155,14 @@ export default function LoginScreen() {
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={16} color="#F43F5E" />
               <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          {/* Success Message */}
+          {success ? (
+            <View style={styles.successContainer}>
+              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+              <Text style={styles.successText}>{success}</Text>
             </View>
           ) : null}
 
@@ -318,6 +332,21 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#F43F5E',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  successContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    gap: 8,
+  },
+  successText: {
+    color: '#10B981',
     fontSize: 13,
     flex: 1,
     lineHeight: 18,

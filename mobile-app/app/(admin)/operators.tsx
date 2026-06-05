@@ -2,7 +2,8 @@ import { Button, Card, Input } from '@/components/ui';
 import type { MockUser } from '@/services/api';
 import { apiService } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function AdminOperators() {
@@ -20,22 +21,25 @@ export default function AdminOperators() {
     password: '',
   });
 
-  useEffect(() => {
-    loadOperators();
-  }, []);
-
-  const loadOperators = async () => {
+  const loadOperators = useCallback(async (silent = false) => {
     try {
+      if (!silent) setLoading(true);
       const response = await apiService.getOperators();
       if (response.success && response.data) {
         setOperators(response.data);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to load operators');
+      if (!silent) Alert.alert('Error', 'Failed to load operators');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadOperators();
+    }, [loadOperators])
+  );
 
   const handleToggleBan = async (username: string) => {
     try {

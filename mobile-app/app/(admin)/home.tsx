@@ -17,12 +17,8 @@ export default function AdminHome() {
       actions={[
         { icon: 'add', title: 'Add Balance' },
         { icon: 'swap-horizontal', title: 'Transfer' },
-        {
-          icon: 'business',
-          title: 'Terminals',
-          onPress: () => router.push('/(admin)/operators'),
-        },
-        { icon: 'ellipsis-horizontal', title: 'More' },
+        { icon: 'business', title: 'Terminals' },
+        { icon: 'ellipsis-horizontal', title: 'More', onPress: () => router.push('/(admin)/menu') },
       ]}
     />
   );

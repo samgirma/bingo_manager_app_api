@@ -28,9 +28,10 @@ export default function OperatorHome() {
           onPress: () => router.push('/(operator)/recharge-balance'),
         },
         { icon: 'business', title: 'Terminals' },
-        { icon: 'ellipsis-horizontal', title: 'More' },
+        { icon: 'ellipsis-horizontal', title: 'More', onPress: () => router.push('/(operator)/menu') },
       ]}
       transactionsDebitedBy={currentUser?.username}
+      terminalsCreatedBy={currentUser?.username}
     />
   );
 }

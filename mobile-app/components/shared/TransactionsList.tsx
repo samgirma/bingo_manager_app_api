@@ -2,8 +2,9 @@ import { Card } from '@/components/ui';
 import type { RechargeHistory } from '@/services/api';
 import { apiService } from '@/services/api';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface TransactionsListProps {
   title: string;
@@ -14,12 +15,9 @@ export default function TransactionsList({ title, debitedByFilter }: Transaction
   const [transactions, setTransactions] = useState<RechargeHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadTransactions();
-  }, []);
-
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async (silent = false) => {
     try {
+      if (!silent) setLoading(true);
       const response = await apiService.getRechargeHistory(debitedByFilter);
       if (response.success && response.data) {
         setTransactions(response.data);
@@ -27,9 +25,16 @@ export default function TransactionsList({ title, debitedByFilter }: Transaction
     } catch (error) {
       console.error('Failed to load transactions');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [debitedByFilter]);
+
+  // Initial load
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+    }, [loadTransactions])
+  );
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);

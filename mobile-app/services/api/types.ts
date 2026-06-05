@@ -51,12 +51,15 @@ export interface ApiResponse<T> {
 
 export interface EncryptedFilePayload {
   fileName: string;
+  filePayload: string;
+  checksum: string;
+  transactionRef?: string;
   iv: string;
-  ciphertext: string;
   keyFingerprint: string;
   format: 'AES-256-CBC';
   timestamp: string;
-  fileContent: string;
+  fileContent?: string;
+  downloadAsBinary?: boolean;
 }
 
 export interface MockUser {

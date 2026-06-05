@@ -11,28 +11,28 @@ exports.list = async (req, res, next) => {
     if (req.query.createdBy) {
       where.created_by = req.query.createdBy;
     }
-    const centers = await BingoCenter.findAll({
-      where,
-      attributes: {
-        include: [
-          [fn('COALESCE', fn('SUM', col('recharge_history.actual_amount')), 0), 'balance'],
-        ],
-      },
-      include: [{
-        model: RechargeHistory,
-        attributes: [],
-        required: false,
-      }],
-      group: ['BingoCenter.id'],
-      order: [['created_at', 'DESC']],
-    });
+    const centers = await BingoCenter.findAll({ where, order: [['created_at', 'DESC']] });
+
+    // Get actual balances from recharge_history for each center
+    const centerUsernames = centers.map(c => c.username);
+    const balances = {};
+    if (centerUsernames.length > 0) {
+      const results = await RechargeHistory.findAll({
+        attributes: ['bingo_center_username', [fn('COALESCE', fn('SUM', col('actual_amount')), 0), 'total']],
+        where: { bingo_center_username: centerUsernames },
+        group: ['bingo_center_username'],
+        raw: true,
+      });
+      results.forEach(r => { balances[r.bingo_center_username] = parseFloat(r.total); });
+    }
+
     res.json({
       success: true,
       data: centers.map((c) => ({
         userID: c.id,
         full_name: c.full_name,
         username: c.username,
-        balance: parseFloat(c.dataValues.balance || '0'),
+        balance: balances[c.username] || 0,
         mac_address: c.mac_address,
         createdBy: c.created_by,
         createdAt: c.created_at,

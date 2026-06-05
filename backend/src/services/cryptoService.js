@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
 
 const USER_KEY_SOURCE = 'This_secrate_key_for_encription_2026_for_user_generation';
@@ -18,9 +19,10 @@ function randomHex(length) {
 }
 
 function keyFingerprint(key) {
+  const keyStr = Buffer.isBuffer(key) ? key.toString('hex') : key;
   let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash << 5) - hash + key.charCodeAt(i);
+  for (let i = 0; i < keyStr.length; i++) {
+    hash = (hash << 5) - hash + keyStr.charCodeAt(i);
     hash |= 0;
   }
   return (hash >>> 0).toString(16).slice(0, 8).padStart(8, '0');
@@ -28,6 +30,12 @@ function keyFingerprint(key) {
 
 function sha256(data) {
   return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+function deriveAes256Key(source) {
+  // PHP import scripts expect the raw key truncated to 32 bytes,
+  // not a SHA-256 digest of the passphrase.
+  return Buffer.from(truncate32(source), 'utf8');
 }
 
 function generateTransactionRef() {
@@ -85,23 +93,54 @@ function buildFile(fileName, keySource, plaintext) {
 }
 
 function generateUserFile(centerUsername, password, fullName, balance, macAddress) {
+  const key = truncate32(USER_KEY_SOURCE);
+  const iv = randomHex(32);
+  // Hash password using bcrypt so it's compatible with PHP's password_hash()/password_verify()
+  const passwordHash = bcrypt.hashSync(password, 10);
+
   const payload = JSON.stringify({
     username: centerUsername,
-    password,
+    password: passwordHash,
     name: fullName,
     balance: parseFloat(balance),
     created_at: new Date().toISOString(),
     balance_imported: 1,
     mac_address: macAddress.toUpperCase(),
   });
-  return buildFile(`user_${centerUsername}_${Date.now()}.enc`, USER_KEY_SOURCE, payload);
+
+  // Encrypt raw: IV (16 bytes) + AES-256-CBC ciphertext
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key, 'utf8'), Buffer.from(iv, 'hex'));
+  let encrypted = cipher.update(payload, 'utf8');
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  const rawFile = Buffer.concat([Buffer.from(iv, 'hex'), encrypted]);
+
+  const fp = keyFingerprint(key);
+  const ts = new Date().toISOString();
+  const filePayload = rawFile.toString('base64');
+  const checksum = sha256(rawFile);
+  const transactionRef = generateTransactionRef();
+  const fileName = `user_${centerUsername}_${Date.now()}.enc`;
+
+  archiveFile(fileName, rawFile, transactionRef);
+
+  return {
+    fileName,
+    filePayload,
+    checksum,
+    transactionRef,
+    iv,
+    keyFingerprint: fp,
+    format: 'AES-256-CBC',
+    timestamp: ts,
+    fileContent: filePayload,
+  };
 }
 
 function generateTopupFile(centerUsername, generatedAmount, actualAmount) {
   const key = truncate32(TOPUP_KEY_SOURCE);
   const iv = randomHex(32);
   const plaintext = String(actualAmount);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, Buffer.from(iv, 'hex'));
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key, 'utf8'), Buffer.from(iv, 'hex'));
   let encrypted = cipher.update(plaintext, 'utf8');
   encrypted = Buffer.concat([encrypted, cipher.final()]);
   const rawFile = Buffer.concat([Buffer.from(iv, 'hex'), encrypted]);
@@ -124,6 +163,8 @@ function generateTopupFile(centerUsername, generatedAmount, actualAmount) {
     keyFingerprint: fp,
     format: 'AES-256-CBC',
     timestamp: ts,
+    fileContent: filePayload,
+    downloadAsBinary: true,
   };
 }
 

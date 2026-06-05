@@ -1,6 +1,12 @@
 import type { ApiResponse, BingoCenter, EncryptedFilePayload, LoginRequest, LoginResponse, RechargeHistory, User } from './types';
+import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL =  'https://thick-bats-attend.loca.lt' //__DEV__ ? 'http://localhost:3000' : 'https://api.bingomanager.com';
+const BASE_URL =  'https://adrian-surprise-endangered-arch.trycloudflare.com' //__DEV__ ? 'http://localhost:3000' : 'https://api.bingomanager.com';
+
+const REMEMBERED_TOKEN_KEY = 'bingo_remembered_token';
+const REMEMBERED_USER_KEY = 'bingo_remembered_user';
+const REMEMBERED_EXPIRY_KEY = 'bingo_remembered_expiry';
+const REMEMBER_DAYS = 7;
 
 class ApiService {
   private token: string | null = null;
@@ -47,7 +53,7 @@ class ApiService {
 
   // ── Auth ──────────────────────────────────────────────────────
 
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
+  async login(credentials: LoginRequest, rememberMe = false): Promise<LoginResponse> {
     const res = await fetch(`${BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -59,6 +65,14 @@ class ApiService {
     }
     this.token = body.token;
     this.currentUser = body.user;
+
+    if (rememberMe) {
+      const expiry = Date.now() + REMEMBER_DAYS * 24 * 60 * 60 * 1000;
+      await SecureStore.setItemAsync(REMEMBERED_TOKEN_KEY, body.token);
+      await SecureStore.setItemAsync(REMEMBERED_USER_KEY, JSON.stringify(body.user));
+      await SecureStore.setItemAsync(REMEMBERED_EXPIRY_KEY, String(expiry));
+    }
+
     return body;
   }
 
@@ -66,6 +80,38 @@ class ApiService {
     await this.request('/api/auth/logout', { method: 'POST' });
     this.token = null;
     this.currentUser = null;
+    await this.clearRememberedSession();
+  }
+
+  /** Restore a previously remembered session. Returns true if a valid token was restored. */
+  async restoreRememberedSession(): Promise<boolean> {
+    try {
+      const expiryStr = await SecureStore.getItemAsync(REMEMBERED_EXPIRY_KEY);
+      if (!expiryStr) return false;
+
+      const expiry = Number(expiryStr);
+      if (Date.now() > expiry) {
+        await this.clearRememberedSession();
+        return false;
+      }
+
+      const token = await SecureStore.getItemAsync(REMEMBERED_TOKEN_KEY);
+      const userJson = await SecureStore.getItemAsync(REMEMBERED_USER_KEY);
+      if (!token || !userJson) return false;
+
+      this.token = token;
+      this.currentUser = JSON.parse(userJson);
+      return true;
+    } catch {
+      await this.clearRememberedSession();
+      return false;
+    }
+  }
+
+  async clearRememberedSession(): Promise<void> {
+    await SecureStore.deleteItemAsync(REMEMBERED_TOKEN_KEY).catch(() => {});
+    await SecureStore.deleteItemAsync(REMEMBERED_USER_KEY).catch(() => {});
+    await SecureStore.deleteItemAsync(REMEMBERED_EXPIRY_KEY).catch(() => {});
   }
 
   async getCurrentUser(): Promise<ApiResponse<User | null>> {

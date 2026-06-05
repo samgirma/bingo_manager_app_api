@@ -3,11 +3,13 @@ import GlassLoader from '@/components/shared/GlassLoader';
 import { apiService } from '@/services/api';
 import { downloadEncryptedFile } from '@/utils/fileDownloader';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function CreateUser() {
   const currentUser = apiService.getCurrentUserSync();
+  const router = useRouter();
   const [form, setForm] = useState({
     full_name: '',
     username: '',
@@ -71,15 +73,20 @@ export default function CreateUser() {
           'Center Registered',
           `Bingo Center "${form.full_name}" created successfully.\n\nRef: ${file.transactionRef || 'N/A'}`,
           [
-            { text: 'OK' },
+            { text: 'OK', onPress: () => router.replace('/(operator)/home') },
             {
               text: 'Save File',
-              onPress: () => downloadEncryptedFile(file),
+              onPress: () => {
+                downloadEncryptedFile(file);
+                router.replace('/(operator)/home');
+              },
             },
           ],
         );
       } else {
-        Alert.alert('Success', `Bingo Center "${form.full_name}" created successfully`);
+        Alert.alert('Success', `Bingo Center "${form.full_name}" created successfully`, [
+          { text: 'OK', onPress: () => router.replace('/(operator)/home') },
+        ]);
       }
       setForm({ full_name: '', username: '', password: '', mac_address: '', balance: '', actualAmount: '' });
     } catch {
