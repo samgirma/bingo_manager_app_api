@@ -3,9 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
+const config = require('../config/config');
 
-const USER_KEY_SOURCE = 'This_secrate_key_for_encription_2026_for_user_generation';
-const TOPUP_KEY_SOURCE = 'This_secrate_key_for_encription_2026';
+const USER_KEY_SOURCE = config.userKeySource;
+const TOPUP_KEY_SOURCE = config.topupKeySource;
 
 const ARCHIVE_DIR = path.join(__dirname, '..', '..', 'archives');
 if (!fs.existsSync(ARCHIVE_DIR)) fs.mkdirSync(ARCHIVE_DIR, { recursive: true });

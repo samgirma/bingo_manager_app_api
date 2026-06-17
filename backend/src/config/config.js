@@ -41,6 +41,9 @@ const config = {
     smtp_password: process.env.SMTP_PASSWORD || '',
     sender_email: process.env.SENDER_EMAIL || '',
   },
+
+  userKeySource: process.env.USER_KEY_SOURCE || 'This_secrate_key_for_encription_2026_for_user_generation',
+  topupKeySource: process.env.TOPUP_KEY_SOURCE || 'This_secrate_key_for_encription_2026', 
 };
 
 module.exports = config;
