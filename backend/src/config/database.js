@@ -2,10 +2,15 @@ const { Sequelize } = require('sequelize');
 const config = require('./config');
 const logger = require('../utils/logger');
 
+const useSSL = config.env === 'production' || (config.db.host && config.db.host.includes('render.com'));
+
 const sequelize = new Sequelize(config.db.name, config.db.user, config.db.password, {
   host: config.db.host,
   port: config.db.port,
   dialect: config.db.dialect,
+  dialectOptions: useSSL ? {
+    ssl: { require: true, rejectUnauthorized: false },
+  } : {},
   pool: config.db.pool,
   logging: config.env === 'development' ? (msg) => logger.debug(msg) : false,
   define: {
@@ -53,7 +58,7 @@ async function connectDatabase(retries = 5, delay = 3000) {
 async function disconnectDatabase() {
   try {
     await sequelize.close();
-    logger.info('MySQL connection closed');
+    logger.info('PostgreSQL connection closed');
   } catch (error) {
     logger.error('Error closing MySQL connection:', error);
   }
