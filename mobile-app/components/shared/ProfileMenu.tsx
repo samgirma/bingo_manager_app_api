@@ -4,7 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 interface ProfileMenuProps {
   defaultAvatarLetter: string;
@@ -26,6 +36,12 @@ export default function ProfileMenu({ defaultAvatarLetter }: ProfileMenuProps) {
     confirmPassword: '',
   });
   const [loadingMessage, setLoadingMessage] = useState('');
+  const [serverStatus, setServerStatus] = useState<{
+    checking: boolean;
+    status: string | null;
+    database: string | null;
+    uptime: number | null;
+  }>({ checking: false, status: null, database: null, uptime: null });
 
   const handleLogout = async () => {
     try {
@@ -109,6 +125,16 @@ export default function ProfileMenu({ defaultAvatarLetter }: ProfileMenuProps) {
     }
   };
 
+  const handleCheckServerStatus = async () => {
+    setServerStatus({ checking: true, status: null, database: null, uptime: null });
+    const result = await apiService.checkHealth();
+    if (result) {
+      setServerStatus({ checking: false, status: result.status, database: result.database, uptime: result.uptime });
+    } else {
+      setServerStatus({ checking: false, status: 'unreachable', database: null, uptime: null });
+    }
+  };
+
   const menuItems = [
     {
       icon: 'person',
@@ -134,7 +160,30 @@ export default function ProfileMenu({ defaultAvatarLetter }: ProfileMenuProps) {
       subtitle: 'App preferences and configurations',
       onPress: () => Alert.alert('Info', 'Settings coming soon'),
     },
+    {
+      icon: 'server',
+      title: 'Server Status',
+      subtitle: serverStatus.checking
+        ? 'Checking...'
+        : serverStatus.status === 'healthy'
+          ? 'Server is online'
+          : serverStatus.status === 'degraded'
+            ? 'Server running, DB disconnected'
+            : serverStatus.status === 'unreachable'
+              ? 'Cannot reach server'
+              : 'Tap to check server status',
+      onPress: handleCheckServerStatus,
+    },
   ];
+
+  const statusColor =
+    serverStatus.status === 'healthy'
+      ? '#10B981'
+      : serverStatus.status === 'degraded'
+        ? '#F59E0B'
+        : serverStatus.status === 'unreachable'
+          ? '#EF4444'
+          : '#38BDF8';
 
   return (
     <View style={styles.container}>
@@ -177,7 +226,15 @@ export default function ProfileMenu({ defaultAvatarLetter }: ProfileMenuProps) {
                     <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                {item.icon === 'server' && serverStatus.status ? (
+                  serverStatus.checking ? (
+                    <ActivityIndicator size="small" color="#94A3B8" />
+                  ) : (
+                    <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                  )
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                )}
               </View>
             </Card>
           </TouchableOpacity>
@@ -388,6 +445,11 @@ const styles = StyleSheet.create({
   menuItemSubtitle: {
     fontSize: 12,
     color: '#94A3B8',
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   logoutButton: {
     marginTop: 24,

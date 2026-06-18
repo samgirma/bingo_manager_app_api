@@ -51,6 +51,17 @@ class ApiService {
     }
   }
 
+  // ── Health ─────────────────────────────────────────────────────
+  async checkHealth(): Promise<{ status: string; database: string; uptime: number } | null> {
+    try {
+      const res = await fetch(`${BASE_URL}/health`, { method: 'GET' });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
   // ── Auth ──────────────────────────────────────────────────────
 
   async login(credentials: LoginRequest, rememberMe = false): Promise<LoginResponse> {

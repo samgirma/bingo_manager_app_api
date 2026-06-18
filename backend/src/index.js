@@ -5,7 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const { connectDatabase } = require('./config/database');
+const { connectDatabase, checkConnection } = require('./config/database');
 const config = require('./config/config');
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
@@ -24,15 +24,16 @@ const app = express();
 
 // ── Security middleware ───────────────────────────────────────
 app.use(helmet());
+const corsOrigins = config.cors.origin ? config.cors.origin.split(',') : ['*'];
 app.use(cors({
-  origin: config.cors.origin,
-  credentials: true,
+  origin: corsOrigins.includes('*') ? '*' : corsOrigins,
+  credentials: corsOrigins.includes('*') ? undefined : true,
 }));
 
 // ── Rate limiting ─────────────────────────────────────────────
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: config.env === 'production' ? 200 : 100,
   message: { error: 'Too many requests from this IP, please try again later.' },
 });
 app.use('/api/', limiter);
@@ -51,9 +52,11 @@ app.use((req, res, next) => {
 });
 
 // ── Health check ──────────────────────────────────────────────
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
+  const dbOk = await checkConnection();
   res.json({
-    status: 'OK',
+    status: dbOk ? 'healthy' : 'degraded',
+    database: dbOk ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
@@ -79,17 +82,12 @@ app.use(errorHandler);
 
 // ── Start ─────────────────────────────────────────────────────
 const startServer = async () => {
-  try {
-    await connectDatabase();
-    app.listen(config.port, () => {
-      logger.info(`Server running on port ${config.port}`, {
-        environment: config.env,
-      });
+  await connectDatabase();
+  app.listen(config.port, () => {
+    logger.info(`Server running on port ${config.port}`, {
+      environment: config.env,
     });
-  } catch (error) {
-    logger.error('Failed to start server:', error);
-    process.exit(1);
-  }
+  });
 };
 
 process.on('SIGTERM', () => { logger.info('SIGTERM received'); process.exit(0); });

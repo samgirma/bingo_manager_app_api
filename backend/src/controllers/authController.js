@@ -36,7 +36,7 @@ exports.login = async (req, res, next) => {
     });
 
     // Persist session for invalidation on logout / ban
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await Session.create({ user_id: user.id, token, expires_at: expiresAt });
 
     logger.info(`User logged in: ${user.username}`, { role: user.role });

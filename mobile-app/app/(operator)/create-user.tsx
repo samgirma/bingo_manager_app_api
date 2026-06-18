@@ -5,7 +5,7 @@ import { downloadEncryptedFile } from '@/utils/fileDownloader';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function CreateUser() {
   const currentUser = apiService.getCurrentUserSync();
@@ -15,9 +15,10 @@ export default function CreateUser() {
     username: '',
     password: '',
     mac_address: '',
-    balance: '',
-    actualAmount: '',
+    balance: '0',
+    actualAmount: '0',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
 
@@ -28,7 +29,7 @@ export default function CreateUser() {
   };
 
   const handleCreateBingoCenter = async () => {
-    if (!form.full_name || !form.username || !form.password || !form.mac_address || !form.balance || !form.actualAmount) {
+    if (!form.full_name || !form.username || !form.password || !form.mac_address) {
       Alert.alert('Validation Error', 'Please fill all fields');
       return;
     }
@@ -88,7 +89,7 @@ export default function CreateUser() {
           { text: 'OK', onPress: () => router.replace('/(operator)/home') },
         ]);
       }
-      setForm({ full_name: '', username: '', password: '', mac_address: '', balance: '', actualAmount: '' });
+      setForm({ full_name: '', username: '', password: '', mac_address: '', balance: '0', actualAmount: '0' });
     } catch {
       Alert.alert('System Error', 'An unexpected error occurred during registration');
     } finally {
@@ -117,7 +118,7 @@ export default function CreateUser() {
 
           <Input
             label="Full Name"
-            placeholder="e.g. Sami Bingo"
+            placeholder="e.g. Unique Bingo"
             value={form.full_name}
             onChangeText={(text) => setForm({ ...form, full_name: text })}
           />
@@ -130,13 +131,29 @@ export default function CreateUser() {
             autoCapitalize="none"
           />
 
-          <Input
-            label="Password"
-            placeholder="Enter password"
-            value={form.password}
-            onChangeText={(text) => setForm({ ...form, password: text })}
-            secureTextEntry
-          />
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Password</Text>
+            <View style={styles.passwordRow}>
+              <TextInput
+                style={styles.passwordField}
+                placeholder="Enter password"
+                placeholderTextColor="#94A3B8"
+                value={form.password}
+                onChangeText={(text) => setForm({ ...form, password: text })}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#94A3B8"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
 
           <Input
             label="MAC Address"
@@ -148,19 +165,15 @@ export default function CreateUser() {
           />
 
           <Input
-            label="Starting Balance"
-            placeholder="Enter initial balance (ETB)"
+            label="Starting Balance (ETB)"
             value={form.balance}
-            onChangeText={(text) => setForm({ ...form, balance: text })}
-            keyboardType="decimal-pad"
+            editable={false}
           />
 
           <Input
-            label="Actual Paid Amount"
-            placeholder="Enter amount paid (ETB)"
+            label="Actual Paid Amount (ETB)"
             value={form.actualAmount}
-            onChangeText={(text) => setForm({ ...form, actualAmount: text })}
-            keyboardType="decimal-pad"
+            editable={false}
           />
 
           <Button
@@ -232,6 +245,35 @@ const styles = StyleSheet.create({
   formSubtitle: {
     fontSize: 14,
     color: '#94A3B8',
+  },
+  fieldGroup: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+  },
+  passwordField: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  eyeButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   submitButton: {
     marginTop: 8,

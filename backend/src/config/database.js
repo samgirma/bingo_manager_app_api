@@ -14,20 +14,39 @@ const sequelize = new Sequelize(config.db.name, config.db.user, config.db.passwo
   },
 });
 
-async function connectDatabase() {
+async function checkConnection() {
   try {
     await sequelize.authenticate();
-    logger.info('MySQL connection established', {
-      host: config.db.host,
-      database: config.db.name,
-    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-    // Sync models (creates tables if they don't exist)
-    await sequelize.sync({ alter: false });
-    logger.info('Database models synchronized');
-  } catch (error) {
-    logger.error('Unable to connect to MySQL:', error);
-    process.exit(1);
+async function connectDatabase(retries = 5, delay = 3000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await sequelize.authenticate();
+      logger.info('MySQL connection established', {
+        host: config.db.host,
+        database: config.db.name,
+      });
+
+      await sequelize.sync({ alter: false });
+      logger.info('Database models synchronized');
+      return;
+    } catch (error) {
+      const isLast = i === retries - 1;
+      logger.error(
+        isLast ? 'Unable to connect to MySQL:' : `DB connection attempt ${i + 1}/${retries} failed, retrying...`,
+        isLast ? error : undefined,
+      );
+      if (isLast) {
+        logger.warn('Starting server without database – health check will report degraded');
+        return;
+      }
+      await new Promise((r) => setTimeout(r, delay));
+    }
   }
 }
 
@@ -40,4 +59,4 @@ async function disconnectDatabase() {
   }
 }
 
-module.exports = { sequelize, connectDatabase, disconnectDatabase };
+module.exports = { sequelize, connectDatabase, disconnectDatabase, checkConnection };
