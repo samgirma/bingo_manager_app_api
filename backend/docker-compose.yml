@@ -3,10 +3,8 @@ services:
     image: mysql:8.0
     container_name: bingo-mysql
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass123}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-KIbMAWfEodaJiOnsKApepLnyjXbebAxt}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-bingo_manager}
       MYSQL_USER: ${MYSQL_USER:-bingo_app}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-bingo_pass456}
