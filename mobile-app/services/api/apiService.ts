@@ -1,7 +1,7 @@
 import type { ApiResponse, BingoCenter, EncryptedFilePayload, LoginRequest, LoginResponse, RechargeHistory, User } from './types';
 import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL =  'http://10.84.83.221:3000' //__DEV__ ? 'http://localhost:3000' : 'https://api.bingomanager.com';
+const BASE_URL =  __DEV__ ? 'http://localhost:3000' : 'https://bingo-manager-app-api.onrender.com';
 
 const REMEMBERED_TOKEN_KEY = 'bingo_remembered_token';
 const REMEMBERED_USER_KEY = 'bingo_remembered_user';

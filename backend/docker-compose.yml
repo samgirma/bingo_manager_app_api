@@ -1,24 +1,22 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: bingo-mysql
+  postgres:
+    image: postgres:15-alpine
+    container_name: bingo-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-KIbMAWfEodaJiOnsKApepLnyjXbebAxt}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-bingo_manager}
-      MYSQL_USER: ${MYSQL_USER:-bingo_app}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-bingo_pass456}
-      MYSQL_ROOT_HOST: '%'
+      POSTGRES_DB: ${POSTGRES_DB:-bingo_manager}
+      POSTGRES_USER: ${POSTGRES_USER:-bingo_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bingo_pass456}
     ports:
-      - '${MYSQL_PORT:-3306}:3306'
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      test: ['CMD-SHELL', 'pg_isready -U bingo_app -d bingo_manager']
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  mysql_data:
+  postgres_data:

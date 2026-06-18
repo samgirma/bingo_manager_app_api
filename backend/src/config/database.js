@@ -27,7 +27,7 @@ async function connectDatabase(retries = 5, delay = 3000) {
   for (let i = 0; i < retries; i++) {
     try {
       await sequelize.authenticate();
-      logger.info('MySQL connection established', {
+      logger.info('PostgreSQL connection established', {
         host: config.db.host,
         database: config.db.name,
       });
@@ -38,7 +38,7 @@ async function connectDatabase(retries = 5, delay = 3000) {
     } catch (error) {
       const isLast = i === retries - 1;
       logger.error(
-        isLast ? 'Unable to connect to MySQL:' : `DB connection attempt ${i + 1}/${retries} failed, retrying...`,
+        isLast ? 'Unable to connect to PostgreSQL:' : `DB connection attempt ${i + 1}/${retries} failed, retrying...`,
         isLast ? error : undefined,
       );
       if (isLast) {

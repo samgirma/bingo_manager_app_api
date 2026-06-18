@@ -6,11 +6,11 @@ const config = {
 
   db: {
     host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT, 10) || 3306,
+    port: parseInt(process.env.DB_PORT, 10) || 5432,
     name: process.env.DB_NAME || 'bingo_manager',
     user: process.env.DB_USER || 'bingo_app',
     password: process.env.DB_PASSWORD || 'bingo_pass456',
-    dialect: 'mysql',
+    dialect: 'postgres',
     pool: {
       max: 10,
       min: 0,
