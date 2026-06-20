@@ -140,7 +140,7 @@ function generateUserFile(centerUsername, password, fullName, balance, macAddres
 function generateTopupFile(centerUsername, generatedAmount, actualAmount) {
   const key = truncate32(TOPUP_KEY_SOURCE);
   const iv = randomHex(32);
-  const plaintext = String(actualAmount);
+  const plaintext = String(generatedAmount);
   const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key, 'utf8'), Buffer.from(iv, 'hex'));
   let encrypted = cipher.update(plaintext, 'utf8');
   encrypted = Buffer.concat([encrypted, cipher.final()]);
