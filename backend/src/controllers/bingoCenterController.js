@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { BingoCenter, RechargeHistory } = require('../models');
+const { BingoCenter, RechargeHistory, OnlineTopup } = require('../models');
 const { generateUserFile, generateTopupFile } = require('../services/cryptoService');
 const { fn, col } = require('sequelize');
 const { sequelize } = require('../config/database');
@@ -13,8 +13,9 @@ exports.list = async (req, res, next) => {
     }
     const centers = await BingoCenter.findAll({ where, order: [['created_at', 'DESC']] });
 
-    // Get actual balances from recharge_history for each center
     const centerUsernames = centers.map(c => c.username);
+
+    // Get actual balances from recharge_history for each center
     const balances = {};
     if (centerUsernames.length > 0) {
       const results = await RechargeHistory.findAll({
@@ -24,6 +25,22 @@ exports.list = async (req, res, next) => {
         raw: true,
       });
       results.forEach(r => { balances[r.bingo_center_username] = parseFloat(r.total); });
+    }
+
+    // Get online topup balances
+    const onlineBalances = {};
+    if (centerUsernames.length > 0) {
+      const topups = await OnlineTopup.findAll({
+        where: { username: centerUsernames },
+        raw: true,
+      });
+      topups.forEach(t => {
+        onlineBalances[t.username] = {
+          balance: parseFloat(t.balance),
+          actual_balance: parseFloat(t.actual_balance),
+          paid_balance: parseFloat(t.paid_balance),
+        };
+      });
     }
 
     res.json({
@@ -36,6 +53,9 @@ exports.list = async (req, res, next) => {
         mac_address: c.mac_address,
         createdBy: c.created_by,
         createdAt: c.created_at,
+        onlineBalance: onlineBalances[c.username]?.balance || 0,
+        onlineActualBalance: onlineBalances[c.username]?.actual_balance || 0,
+        onlinePaidBalance: onlineBalances[c.username]?.paid_balance || 0,
       })),
     });
   } catch (err) {
@@ -69,7 +89,7 @@ exports.create = async (req, res, next) => {
       return res.status(409).json({ success: false, error: 'MAC address already registered' });
     }
 
-    // Atomic: create center + initial transaction in one DB transaction
+    // Atomic: create center + initial transaction + online topup in one DB transaction
     const result = await sequelize.transaction(async (t) => {
       const hash = await bcrypt.hash(password, 10);
 
@@ -89,7 +109,16 @@ exports.create = async (req, res, next) => {
         debited_by: createdBy || 'system',
       }, { transaction: t });
 
-      return { center, recharge };
+      const topup = await OnlineTopup.create({
+        username,
+        mac_address,
+        balance: parseFloat(actualAmount),
+        actual_balance: parseFloat(actualAmount),
+        paid_balance: 0,
+        created_by: createdBy || 'system',
+      }, { transaction: t });
+
+      return { center, recharge, topup };
     });
 
     logger.info(`Bingo center created: ${result.center.username} with initial balance ${balance}`);
@@ -155,6 +184,21 @@ exports.recharge = async (req, res, next) => {
       debited_by: debitedBy,
     });
 
+    const [topup] = await OnlineTopup.findOrCreate({
+      where: { username: bingoCenterUsername },
+      defaults: {
+        mac_address: center.mac_address,
+        balance: 0,
+        actual_balance: 0,
+        paid_balance: 0,
+        created_by: debitedBy,
+      },
+    });
+    await topup.update({
+      balance: parseFloat(topup.balance) + actVal,
+      actual_balance: parseFloat(topup.actual_balance) + actVal,
+    });
+
     // Generate the encrypted top-up file
     const encFile = generateTopupFile(bingoCenterUsername, genVal, actVal);
 
@@ -172,6 +216,36 @@ exports.recharge = async (req, res, next) => {
       },
       encryptedFile: encFile,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.regenerateUserFile = async (req, res, next) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ success: false, error: 'Username is required' });
+    }
+
+    const center = await BingoCenter.findOne({ where: { username } });
+    if (!center) {
+      return res.status(404).json({ success: false, error: 'Bingo center not found' });
+    }
+
+    const encFile = generateUserFile(
+      center.username,
+      center.password,
+      center.full_name,
+      0,
+      center.mac_address,
+      true,
+    );
+
+    logger.info(`User file regenerated for ${username} by ${req.user?.username}`);
+
+    res.json({ success: true, encryptedFile: encFile });
   } catch (err) {
     next(err);
   }

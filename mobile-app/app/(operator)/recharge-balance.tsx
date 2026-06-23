@@ -11,10 +11,15 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 export default function RechargeBalance() {
   const currentUser = apiService.getCurrentUserSync();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'file' | 'online'>('file');
   const [bingoCenters, setBingoCenters] = useState<BingoCenter[]>([]);
   const [selectedCenter, setSelectedCenter] = useState<string>('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [form, setForm] = useState({
+    generatedAmount: '',
+    actualAmount: '',
+  });
+  const [onlineForm, setOnlineForm] = useState({
     generatedAmount: '',
     actualAmount: '',
   });
@@ -29,7 +34,7 @@ export default function RechargeBalance() {
       if (response.success && response.data) {
         setBingoCenters(response.data);
       }
-    } catch (error) {
+    } catch {
       if (!silent) Alert.alert('Error', 'Failed to load Bingo Centers');
     } finally {
       if (!silent) setLoadingCenters(false);
@@ -82,25 +87,62 @@ export default function RechargeBalance() {
       const file = response.encryptedFile;
 
       if (file) {
-        Alert.alert(
-          'Top-up Complete',
-          `Balance recharged successfully.\n\nRef: ${file.transactionRef || 'N/A'}`,
-          [
-            { text: 'OK', onPress: () => router.replace('/(operator)/home') },
-            {
-              text: 'Save File',
-              onPress: () => {
-                downloadEncryptedFile(file);
-                router.replace('/(operator)/home');
-              },
-            },
-          ],
-        );
-      } else {
-        Alert.alert('Success', 'Balance recharged successfully', [
-          { text: 'OK', onPress: () => router.replace('/(operator)/home') },
-        ]);
+        downloadEncryptedFile(file);
       }
+      Alert.alert('Success', 'Balance recharged successfully', [
+        { text: 'OK', onPress: () => router.replace('/(operator)/home') },
+      ]);
+    } catch {
+      Alert.alert('System Error', 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+      setLoadingMessage('');
+    }
+  };
+
+  const handleAddOnlineTopup = async () => {
+    if (!selectedCenter || !onlineForm.generatedAmount || !onlineForm.actualAmount) {
+      Alert.alert('Validation Error', 'Please fill all fields');
+      return;
+    }
+
+    const genVal = parseFloat(onlineForm.generatedAmount);
+    const actVal = parseFloat(onlineForm.actualAmount);
+
+    if (genVal <= 0) {
+      Alert.alert('Validation Error', 'Generated amount must be greater than zero');
+      return;
+    }
+    if (actVal <= 0) {
+      Alert.alert('Validation Error', 'Actual paid amount must be greater than zero');
+      return;
+    }
+
+    setLoading(true);
+    setLoadingMessage('Adding online topup...');
+    try {
+      const response = await apiService.addOnlineTopup({
+        bingoCenterUsername: selectedCenter,
+        amount: genVal,
+        actualAmount: actVal,
+      });
+
+      if (!response.success) {
+        Alert.alert('Operation Failed', response.error || 'Failed to add online topup');
+        return;
+      }
+
+      if (response.data) {
+        const { balance, actual_balance, paid_balance } = response.data;
+        setBingoCenters(prev => prev.map(c =>
+          c.username === selectedCenter
+            ? { ...c, onlineBalance: balance, onlineActualBalance: actual_balance, onlinePaidBalance: paid_balance }
+            : c
+        ));
+      }
+
+      setOnlineForm({ generatedAmount: '', actualAmount: '' });
+      Alert.alert('Success', 'Online topup added successfully');
     } catch {
       Alert.alert('System Error', 'An unexpected error occurred');
     } finally {
@@ -111,6 +153,10 @@ export default function RechargeBalance() {
 
   const getSelectedCenter = () => bingoCenters.find(c => c.username === selectedCenter);
   const selectedBalance = parseFloat(getSelectedCenter()?.balance as unknown as string) || 0;
+  const sc = getSelectedCenter();
+  const displayOnlineBalance = sc?.onlineBalance != null ? Number(sc.onlineBalance) : null;
+  const displayOnlineActual = sc?.onlineActualBalance != null ? Number(sc.onlineActualBalance) : null;
+  const displayOnlinePaid = sc?.onlinePaidBalance != null ? Number(sc.onlinePaidBalance) : null;
 
   return (
     <View style={styles.container}>
@@ -121,12 +167,33 @@ export default function RechargeBalance() {
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'file' && styles.tabActive]}
+            onPress={() => setActiveTab('file')}
+          >
+            <Ionicons name="document" size={16} color={activeTab === 'file' ? '#38BDF8' : '#94A3B8'} />
+            <Text style={[styles.tabText, activeTab === 'file' && styles.tabTextActive]}>File</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'online' && styles.tabActive]}
+            onPress={() => setActiveTab('online')}
+          >
+            <Ionicons name="globe" size={16} color={activeTab === 'online' ? '#38BDF8' : '#94A3B8'} />
+            <Text style={[styles.tabText, activeTab === 'online' && styles.tabTextActive]}>Online</Text>
+          </TouchableOpacity>
+        </View>
+
         <Card style={styles.formCard}>
           <View style={styles.formHeader}>
-            <Ionicons name="wallet" size={32} color="#38BDF8" />
+            <Ionicons name={activeTab === 'file' ? 'wallet' : 'globe'} size={32} color="#38BDF8" />
             <View style={styles.formHeaderText}>
-              <Text style={styles.formTitle}>Recharge Terminal</Text>
-              <Text style={styles.formSubtitle}>Add balance to Bingo Center</Text>
+              <Text style={styles.formTitle}>
+                {activeTab === 'file' ? 'Recharge Terminal' : 'Add Online Balance'}
+              </Text>
+              <Text style={styles.formSubtitle}>
+                {activeTab === 'file' ? 'Add balance via encrypted file' : 'Credit balance for terminal to claim'}
+              </Text>
             </View>
           </View>
 
@@ -134,7 +201,6 @@ export default function RechargeBalance() {
             <Text style={styles.loadingText}>Loading Bingo Centers...</Text>
           ) : (
             <>
-              {/* Dropdown */}
               <Text style={styles.label}>Select Bingo Center *</Text>
               <TouchableOpacity
                 style={styles.dropdown}
@@ -178,61 +244,133 @@ export default function RechargeBalance() {
                 </View>
               )}
 
-              {/* Balance Card */}
-              {selectedCenter && (
+              {selectedCenter && activeTab === 'file' && (
                 <Card style={styles.balanceCard}>
                   <Text style={styles.balanceLabel}>Current Balance</Text>
                   <Text style={styles.balanceValue}>{selectedBalance.toFixed(2)} ETB</Text>
                 </Card>
               )}
 
-              <Input
-                label="Generated Amount *"
-                placeholder="Amount to generate on terminal"
-                value={form.generatedAmount}
-                onChangeText={(text) => setForm({ ...form, generatedAmount: text })}
-                keyboardType="decimal-pad"
-              />
-
-              <Input
-                label="Actual Paid Amount *"
-                placeholder="Physical cash received"
-                value={form.actualAmount}
-                onChangeText={(text) => setForm({ ...form, actualAmount: text })}
-                keyboardType="decimal-pad"
-              />
-
-              {form.generatedAmount && form.actualAmount && (
-                <Card style={styles.summaryCard}>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Generated:</Text>
-                    <Text style={styles.summaryValue}>{parseFloat(form.generatedAmount).toFixed(2)} ETB</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Actual Paid:</Text>
-                    <Text style={styles.summaryValue}>{parseFloat(form.actualAmount).toFixed(2)} ETB</Text>
-                  </View>
-                  <View style={[styles.summaryRow, styles.summaryRowTotal]}>
-                    <Text style={styles.summaryLabelTotal}>Difference:</Text>
-                    <Text style={[
-                      styles.summaryValueTotal,
-                      (parseFloat(form.generatedAmount) - parseFloat(form.actualAmount)) >= 0
-                        ? styles.positive
-                        : styles.negative,
-                    ]}>
-                      {(parseFloat(form.generatedAmount) - parseFloat(form.actualAmount)).toFixed(2)} ETB
-                    </Text>
+              {selectedCenter && activeTab === 'online' && displayOnlineBalance !== null && (
+                <Card style={styles.balanceCard}>
+                  <Text style={styles.balanceLabel}>Online Topup Balance</Text>
+                  <Text style={styles.balanceValue}>{displayOnlineBalance.toFixed(2)} ETB</Text>
+                  <View style={styles.balanceDetails}>
+                    <View style={styles.balanceDetailRow}>
+                      <Text style={styles.balanceDetailLabel}>Total Credited:</Text>
+                      <Text style={styles.balanceDetailValue}>{displayOnlineActual?.toFixed(2)} ETB</Text>
+                    </View>
+                    <View style={styles.balanceDetailRow}>
+                      <Text style={styles.balanceDetailLabel}>Total Claimed:</Text>
+                      <Text style={styles.balanceDetailValue}>{displayOnlinePaid?.toFixed(2)} ETB</Text>
+                    </View>
                   </View>
                 </Card>
               )}
 
-              <Button
-                title="Recharge Balance"
-                onPress={handleRecharge}
-                loading={loading}
-                disabled={!selectedCenter || !form.generatedAmount || !form.actualAmount}
-                style={styles.submitButton}
-              />
+              {selectedCenter && activeTab === 'file' && (
+                <>
+                  <Input
+                    label="Generated Amount *"
+                    placeholder="Amount to generate on terminal"
+                    value={form.generatedAmount}
+                    onChangeText={(text) => setForm({ ...form, generatedAmount: text })}
+                    keyboardType="decimal-pad"
+                  />
+
+                  <Input
+                    label="Actual Paid Amount *"
+                    placeholder="Physical cash received"
+                    value={form.actualAmount}
+                    onChangeText={(text) => setForm({ ...form, actualAmount: text })}
+                    keyboardType="decimal-pad"
+                  />
+
+                  {form.generatedAmount && form.actualAmount && (
+                    <Card style={styles.summaryCard}>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Generated:</Text>
+                        <Text style={styles.summaryValue}>{parseFloat(form.generatedAmount).toFixed(2)} ETB</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Actual Paid:</Text>
+                        <Text style={styles.summaryValue}>{parseFloat(form.actualAmount).toFixed(2)} ETB</Text>
+                      </View>
+                      <View style={[styles.summaryRow, styles.summaryRowTotal]}>
+                        <Text style={styles.summaryLabelTotal}>Difference:</Text>
+                        <Text style={[
+                          styles.summaryValueTotal,
+                          (parseFloat(form.generatedAmount) - parseFloat(form.actualAmount)) >= 0
+                            ? styles.positive
+                            : styles.negative,
+                        ]}>
+                          {(parseFloat(form.generatedAmount) - parseFloat(form.actualAmount)).toFixed(2)} ETB
+                        </Text>
+                      </View>
+                    </Card>
+                  )}
+
+                  <Button
+                    title="Recharge Balance"
+                    onPress={handleRecharge}
+                    loading={loading}
+                    disabled={!selectedCenter || !form.generatedAmount || !form.actualAmount}
+                    style={styles.submitButton}
+                  />
+                </>
+              )}
+
+              {selectedCenter && activeTab === 'online' && (
+                <>
+                  <Input
+                    label="Generated Amount *"
+                    placeholder="Amount to credit to terminal"
+                    value={onlineForm.generatedAmount}
+                    onChangeText={(text) => setOnlineForm({ ...onlineForm, generatedAmount: text })}
+                    keyboardType="decimal-pad"
+                  />
+
+                  <Input
+                    label="Actual Paid Amount *"
+                    placeholder="Real money received"
+                    value={onlineForm.actualAmount}
+                    onChangeText={(text) => setOnlineForm({ ...onlineForm, actualAmount: text })}
+                    keyboardType="decimal-pad"
+                  />
+
+                  {onlineForm.generatedAmount && onlineForm.actualAmount && (
+                    <Card style={styles.summaryCard}>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Generated:</Text>
+                        <Text style={styles.summaryValue}>{parseFloat(onlineForm.generatedAmount).toFixed(2)} ETB</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Actual Paid:</Text>
+                        <Text style={styles.summaryValue}>{parseFloat(onlineForm.actualAmount).toFixed(2)} ETB</Text>
+                      </View>
+                      <View style={[styles.summaryRow, styles.summaryRowTotal]}>
+                        <Text style={styles.summaryLabelTotal}>Difference:</Text>
+                        <Text style={[
+                          styles.summaryValueTotal,
+                          (parseFloat(onlineForm.generatedAmount) - parseFloat(onlineForm.actualAmount)) >= 0
+                            ? styles.positive
+                            : styles.negative,
+                        ]}>
+                          {(parseFloat(onlineForm.generatedAmount) - parseFloat(onlineForm.actualAmount)).toFixed(2)} ETB
+                        </Text>
+                      </View>
+                    </Card>
+                  )}
+
+                  <Button
+                    title="Add Online Topup"
+                    onPress={handleAddOnlineTopup}
+                    loading={loading}
+                    disabled={!selectedCenter || !onlineForm.generatedAmount || !onlineForm.actualAmount}
+                    style={styles.submitButton}
+                  />
+                </>
+              )}
             </>
           )}
         </Card>
@@ -241,11 +379,24 @@ export default function RechargeBalance() {
           <View style={styles.infoContent}>
             <Ionicons name="information-circle" size={24} color="#FBBF24" />
             <View style={styles.infoText}>
-              <Text style={styles.infoTitle}>Recharge Information</Text>
-              <Text style={styles.infoDescription}>
-                Generated amount is applied to the terminal and encrypted in the .enc file.
-                Actual amount is the physical cash received and recorded in transaction history.
-              </Text>
+              {activeTab === 'file' ? (
+                <>
+                  <Text style={styles.infoTitle}>Recharge Information</Text>
+                  <Text style={styles.infoDescription}>
+                    Generated amount is applied to the terminal and encrypted in the .enc file.
+                    Actual amount is the physical cash received and recorded in transaction history.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.infoTitle}>Online Topup Information</Text>
+                  <Text style={styles.infoDescription}>
+                    Adding online balance credits the terminal's online pool. The terminal can
+                    then claim this balance using its credentials. All transactions are recorded
+                    in the recharge history for auditing.
+                  </Text>
+                </>
+              )}
             </View>
           </View>
         </Card>
@@ -259,13 +410,23 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, backgroundColor: 'rgba(30, 41, 59, 0.5)' },
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
   scrollView: { flex: 1, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
+  tabBar: {
+    flexDirection: 'row', marginBottom: 16, backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    borderRadius: 12, padding: 4,
+  },
+  tab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, borderRadius: 8, gap: 6,
+  },
+  tabActive: { backgroundColor: 'rgba(56, 189, 248, 0.15)' },
+  tabText: { fontSize: 14, fontWeight: '500', color: '#94A3B8' },
+  tabTextActive: { color: '#38BDF8', fontWeight: '600' },
   formCard: { marginBottom: 16 },
   formHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   formHeaderText: { marginLeft: 16, flex: 1 },
   formTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
   formSubtitle: { fontSize: 14, color: '#94A3B8' },
   label: { fontSize: 14, color: '#94A3B8', marginBottom: 8, fontWeight: '500' },
-  // Dropdown
   dropdown: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.7)', borderRadius: 12, borderWidth: 1,
@@ -285,11 +446,13 @@ const styles = StyleSheet.create({
   dropdownItemText: { fontSize: 14, color: '#FFFFFF', flex: 1 },
   dropdownItemTextSelected: { color: '#38BDF8', fontWeight: '600' },
   dropdownItemBalance: { fontSize: 12, color: '#94A3B8' },
-  // Balance
   balanceCard: { marginBottom: 16, alignItems: 'center', padding: 20 },
   balanceLabel: { fontSize: 14, color: '#94A3B8', marginBottom: 8 },
   balanceValue: { fontSize: 32, fontWeight: '700', color: '#38BDF8' },
-  // Summary
+  balanceDetails: { width: '100%', marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(56, 189, 248, 0.1)', paddingTop: 12 },
+  balanceDetailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  balanceDetailLabel: { fontSize: 13, color: '#94A3B8' },
+  balanceDetailValue: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
   summaryCard: { marginBottom: 16 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(56, 189, 248, 0.1)' },
   summaryRowTotal: { borderBottomWidth: 0, paddingTop: 12, marginTop: 4 },
@@ -300,7 +463,6 @@ const styles = StyleSheet.create({
   positive: { color: '#10B981' },
   negative: { color: '#F43F5E' },
   submitButton: { marginTop: 8 },
-  // Info
   infoCard: { marginBottom: 20 },
   infoContent: { flexDirection: 'row', alignItems: 'flex-start' },
   infoText: { marginLeft: 12, flex: 1 },

@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "mobile-app",
-    "slug": "mobile-app",
-    "version": "1.0.0",
+    "name": "Unique_Bingo",
+    "slug": "Unique_Bingo",
+    "version": "1.0.1",
     "orientation": "portrait",
     "jsEngine": "hermes",
     "icon": "./assets/images/bingo_ico.png",

@@ -1,7 +1,7 @@
-import type { ApiResponse, BingoCenter, EncryptedFilePayload, LoginRequest, LoginResponse, RechargeHistory, User } from './types';
+import type { ApiResponse, BingoCenter, EncryptedFilePayload, LoginRequest, LoginResponse, OnlineTopup, RechargeHistory, User } from './types';
 import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL =  __DEV__ ? 'http://localhost:3000' : 'https://bingo-manager-app-api.onrender.com';
+const BASE_URL = 'http://10.28.228.221:3000'//  __DEV__ ? 'http://localhost:3000' : 'https://bingo-manager-app-api.onrender.com';
 
 const REMEMBERED_TOKEN_KEY = 'bingo_remembered_token';
 const REMEMBERED_USER_KEY = 'bingo_remembered_user';
@@ -212,6 +212,29 @@ class ApiService {
   async getRechargeHistory(debitedBy?: string): Promise<ApiResponse<RechargeHistory[]>> {
     const qs = debitedBy ? `?debitedBy=${encodeURIComponent(debitedBy)}` : '';
     return this.request<RechargeHistory[]>(`/api/transactions${qs}`);
+  }
+
+  // ── Regenerate User File ────────────────────────────────────
+
+  async regenerateUserFile(username: string): Promise<ApiResponse<unknown> & { encryptedFile?: EncryptedFilePayload }> {
+    const { apiResponse, body } = await this.requestRaw('/api/bingo-centers/regenerate-user-file', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    });
+    return Object.assign(apiResponse, { encryptedFile: body.encryptedFile as EncryptedFilePayload | undefined });
+  }
+
+  // ── Online Topup ─────────────────────────────────────────────
+
+  async addOnlineTopup(data: {
+    bingoCenterUsername: string;
+    amount: number;
+    actualAmount?: number;
+  }): Promise<ApiResponse<OnlineTopup>> {
+    return this.request<OnlineTopup>('/api/bingo-centers/online-topup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   // ── Analytics ─────────────────────────────────────────────────

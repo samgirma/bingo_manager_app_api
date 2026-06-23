@@ -27,6 +27,11 @@ export default function OperatorHome() {
           title: 'Recharge',
           onPress: () => router.push('/(operator)/recharge-balance'),
         },
+        {
+          icon: 'globe',
+          title: 'Online',
+          onPress: () => router.push('/(operator)/recharge-balance'),
+        },
         { icon: 'business', title: 'Terminals' },
         { icon: 'ellipsis-horizontal', title: 'More', onPress: () => router.push('/(operator)/menu') },
       ]}

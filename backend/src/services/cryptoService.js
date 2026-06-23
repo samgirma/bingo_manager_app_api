@@ -93,11 +93,12 @@ function buildFile(fileName, keySource, plaintext) {
   };
 }
 
-function generateUserFile(centerUsername, password, fullName, balance, macAddress) {
+function generateUserFile(centerUsername, password, fullName, balance, macAddress, isHashed = false) {
   const key = truncate32(USER_KEY_SOURCE);
   const iv = randomHex(32);
   // Hash password using bcrypt so it's compatible with PHP's password_hash()/password_verify()
-  const passwordHash = bcrypt.hashSync(password, 10);
+  // When regenerating for existing users, isHashed=true and the password is already a bcrypt hash
+  const passwordHash = isHashed ? password : bcrypt.hashSync(password, 10);
 
   const payload = JSON.stringify({
     username: centerUsername,

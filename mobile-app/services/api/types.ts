@@ -32,6 +32,9 @@ export interface BingoCenter {
   mac_address: string;
   createdBy: string;
   createdAt: string;
+  onlineBalance?: number;
+  onlineActualBalance?: number;
+  onlinePaidBalance?: number;
 }
 
 export interface RechargeHistory {
@@ -60,6 +63,13 @@ export interface EncryptedFilePayload {
   timestamp: string;
   fileContent?: string;
   downloadAsBinary?: boolean;
+}
+
+export interface OnlineTopup {
+  username: string;
+  balance: number;
+  actual_balance: number;
+  paid_balance: number;
 }
 
 export interface MockUser {

@@ -52,3 +52,15 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   used       BOOLEAN      NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS online_topups (
+  id             SERIAL PRIMARY KEY,
+  username       VARCHAR(50)   NOT NULL UNIQUE,
+  mac_address    VARCHAR(17)   NOT NULL,
+  balance        DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  actual_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  paid_balance   DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  created_by     VARCHAR(50)   NOT NULL,
+  created_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+);

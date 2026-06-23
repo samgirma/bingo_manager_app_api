@@ -16,7 +16,7 @@ export default function AdminHome() {
       insightIconColor="#10B981"
       actions={[
         { icon: 'add', title: 'Add Balance' },
-        { icon: 'swap-horizontal', title: 'Transfer' },
+        { icon: 'globe', title: 'Online', onPress: () => router.push('/(operator)/recharge-balance') },
         { icon: 'business', title: 'Terminals' },
         { icon: 'ellipsis-horizontal', title: 'More', onPress: () => router.push('/(admin)/menu') },
       ]}
